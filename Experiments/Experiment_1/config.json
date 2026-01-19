@@ -1,8 +1,8 @@
 {
   "Graph": {
-    "type": "BA",
-    "n": 2000,
-    "m": 3
+        "type" : "ER",
+        "n" : 100,
+        "p" : 0.2
   },
   "OD": {
     "model": "BCM",
@@ -17,6 +17,6 @@
   "Simulation_details": {
     "n_steps": 2000
   },
-  "k_posts": 5,
+  "k_posts": 1,
   "post_history": 50
 }
