@@ -1,0 +1,38 @@
+*_config.json
+.npz
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+# Data and results
+results/
+*.npz
+*.pkl
+*.h5
+
+# Logs
+logs/
+*.log
+*.out
+*.err
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Conda
+*.conda
+environment.yml.lock
+
+# Temporary files
+*.tmp
+*.swp
+*~

@@ -1,0 +1,22 @@
+{
+  "Graph": {
+    "type": "BA",
+    "n": 2000,
+    "m": 3
+  },
+  "OD": {
+    "model": "BCM",
+    "epsilon": 0.2,
+    "mu": 0.1
+  },
+  "Ranker": {
+    "rule": "Random",
+    "alpha": 1.0,
+    "target_opinion": 0.5
+  },
+  "Simulation_details": {
+    "n_steps": 2000
+  },
+  "k_posts": 5,
+  "post_history": 50
+}

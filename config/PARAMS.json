@@ -1,0 +1,19 @@
+{
+    "OD": {
+        "model" : "BCM",
+        "epsilon" : 0.2,
+        "mu" : 0.1
+    },
+    "Ranker": {
+        "rule" : "Random"
+    },
+    "Graph": {
+        "type" : "ER",
+        "n" : 1000,
+        "p" : 0.2
+    },
+    "Simulation_details": {
+        "n_steps" : 10000,
+        "n_runs" : 10
+    }
+}
