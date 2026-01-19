@@ -1,6 +1,4 @@
 import igraph as ig
-import jax.numpy as jnp
-import jax
 import numpy as np
 from src.graphs import build_graph
 from src.metrics import compute_timestep_metrics, record_dying_posts, compute_final_metrics

@@ -1,10 +1,10 @@
 {
   "comment": "Epsilon sweep with multiple rankers",
   "grid": {
-    "OD.epsilon": [0, 0.0444, 0.0889, 0.1333, 0.1778, 0.2222, 0.2667, 0.3111, 0.3556, 0.4],
+    "OD.epsilon": [0, 0.2, 0.4],
     "Ranker.rule": ["Random", "Engagement", "Closest", "Narrative", "Diverse_Engagement", "Evil"],
-    "Ranker.alpha": [0.1, 0.5, 1.0, 2.0, 3.0],
-    "Ranker.target_opinion": [0, 0.25, 0.5]
+    "Ranker.alpha": [1],
+    "Ranker.target_opinion": [0.5]
   },
   "rules": {
     "comment": "Only apply alpha when rule=Engagement, target_opinion when rule=Narrative",

@@ -2,8 +2,8 @@
 #SBATCH --job-name=epsilon_sweep
 #SBATCH --output=logs/job_%A_%a.out
 #SBATCH --error=logs/job_%A_%a.err
-#SBATCH --array=0-59          # Adjust based on total combinations
-#SBATCH --time=24:00:00       # 24 hours per job
+#SBATCH --array=0-18          # Adjust based on total combinations
+#SBATCH --time=1:00:00       # 24 hours per job
 #SBATCH --cpus-per-task=1     # Single core (dummy parallelization)
 #SBATCH --mem=8G              # Memory per job
 #SBATCH --partition=standard  # Adjust to your cluster
