@@ -1,6 +1,33 @@
 import sys
 import os
 
+
+project_root = '/hkfs/work/workspace/scratch/eq2170-Rankers_OD/the_ranking_KIT'
+sys.path.insert(0, project_root)
+
+# DEBUG: Print everything
+print("="*50)
+print(f"Project root: {project_root}")
+print(f"Does it exist? {os.path.exists(project_root)}")
+print(f"Contents: {os.listdir(project_root)}")
+print(f"Does src/ exist? {os.path.exists(os.path.join(project_root, 'src'))}")
+print(f"sys.path after insert: {sys.path[:3]}")
+print("="*50)
+
+# Try importing step by step
+try:
+    import src
+    print(f"✓ Found src at: {src.__file__}")
+except ImportError as e:
+    print(f"✗ Cannot import src: {e}")
+
+try:
+    import src.simulation
+    print(f"✓ Found src.simulation")
+except ImportError as e:
+    print(f"✗ Cannot import src.simulation: {e}")
+
+
 # Get absolute path to this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -18,13 +45,8 @@ print(f"Project root contents: {os.listdir(project_root)}")
 import json
 import itertools
 import numpy as np
-from src.simulation import run_replicas
-from src.analysis import save_results
 
 
-import json
-import itertools
-import numpy as np
 from src.simulation import run_replicas
 from src.analysis import save_results
 
