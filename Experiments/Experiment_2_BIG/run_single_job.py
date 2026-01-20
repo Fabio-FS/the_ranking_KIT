@@ -1,6 +1,6 @@
 import sys
 import os
-
+import time
 
 project_root = '/hkfs/work/workspace/scratch/eq2170-Rankers_OD/the_ranking_KIT'
 sys.path.insert(0, project_root)
@@ -197,6 +197,8 @@ def run_job(job_id, exp_dir, n_replicas=100):
 
 
 if __name__ == "__main__":
+    start_time = time.time()
+    
     if len(sys.argv) < 2:
         print("Usage: python run_single_job.py <job_id> [experiment_dir]")
         sys.exit(1)
@@ -205,3 +207,8 @@ if __name__ == "__main__":
     exp_dir = sys.argv[2] if len(sys.argv) > 2 else "."
     
     run_job(job_id, exp_dir)
+    
+    elapsed_time = time.time() - start_time
+    print(f"\n{'='*50}")
+    print(f"TOTAL EXECUTION TIME: {elapsed_time:.2f} seconds ({elapsed_time/60:.2f} minutes)")
+    print(f"{'='*50}")
