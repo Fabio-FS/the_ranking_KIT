@@ -2,14 +2,9 @@
 Run a single parameter combination from the grid search.
 Usage: python run_single_job.py <job_id> <experiment_dir>
 """
+
 import sys
 import os
-
-# Add project root to Python path (go up 2 levels from current file)
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-sys.path.insert(0, project_root)
-
-
 import json
 import itertools
 import numpy as np
