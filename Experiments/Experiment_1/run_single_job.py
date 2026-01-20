@@ -1,13 +1,25 @@
-"""
-Run a single parameter combination from the grid search.
-Usage: python run_single_job.py <job_id> <experiment_dir>
-"""
 import sys
 import os
 
-# Add project root to Python path (go up 2 levels from current file)
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+# Get absolute path to this script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Go up 2 levels to project root
+project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
+
+# Add to Python path
 sys.path.insert(0, project_root)
+
+# Debug print (remove after testing)
+print(f"Script dir: {script_dir}")
+print(f"Project root: {project_root}")
+print(f"Project root contents: {os.listdir(project_root)}")
+
+import json
+import itertools
+import numpy as np
+from src.simulation import run_replicas
+from src.analysis import save_results
 
 
 import json
