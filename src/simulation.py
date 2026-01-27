@@ -6,7 +6,9 @@ from src.metrics import compute_timestep_metrics, record_dying_posts, compute_fi
 import src.models.BCM
 
 # import rankers:
-import src.rankers.random, src.rankers.closest, src.rankers.diverse_engagement, src.rankers.engagement, src.rankers.narrative, src.rankers.evil
+import src.rankers.random, src.rankers.closest, src.rankers.diverse_engagement 
+import src.rankers.engagement, src.rankers.narrative, src.rankers.evil
+import src.rankers.user_success
 
 
 INIT_OD = {
@@ -23,7 +25,8 @@ INIT_RANKER = {
     'Diverse_Engagement': src.rankers.diverse_engagement.initialize,
     'Engagement': src.rankers.engagement.initialize,
     'Narrative': src.rankers.narrative.initialize,
-    "Evil": src.rankers.evil.initialize
+    "Evil": src.rankers.evil.initialize,
+    'User_Success': src.rankers.user_success.initialize
 }
 RANKER = {
     'Random': src.rankers.random.rank,
@@ -31,7 +34,8 @@ RANKER = {
     'Diverse_Engagement': src.rankers.diverse_engagement.rank,
     'Engagement': src.rankers.engagement.rank,
     'Narrative': src.rankers.narrative.rank,
-    "Evil": src.rankers.evil.rank
+    "Evil": src.rankers.evil.rank,
+    'User_Success': src.rankers.user_success.rank
 }
 
 

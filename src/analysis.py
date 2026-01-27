@@ -728,3 +728,377 @@ def print_ranker_order(results_list):
             name = rule
         
         print(f"{idx}: {name}")
+
+
+def load_all_final_polarization(results_dir):
+    """
+    Load final polarization values from all result files.
+    
+    Args:
+        results_dir: path to directory containing .npz result files
+        
+    Returns:
+        tuple: (pol_array, epsilon_list, ranker_list)
+            - pol_array: (n_replicas, n_rankers, n_epsilons) array
+            - epsilon_list: sorted list of epsilon values
+            - ranker_list: sorted list of ranker configuration names
+    """
+    import glob
+    
+    final_polarization = {}
+    epsilon_values = set()
+    ranker_configs = set()
+    
+    for filepath in glob.glob(f'{results_dir}/*.npz'):
+        base_path = filepath[:-4]
+        data, config = load_results(base_path)
+        
+        epsilon = config['OD']['epsilon']
+        ranker = config['Ranker']['rule']
+        
+        epsilon_values.add(epsilon)
+        
+        if ranker == 'Engagement':
+            alpha = config['Ranker']['alpha']
+            key = (epsilon, f'{ranker}_alpha{alpha}')
+            ranker_configs.add(f'{ranker}_alpha{alpha}')
+        elif ranker in ['Narrative', 'Evil']:
+            target = config['Ranker']['target_opinion']
+            key = (epsilon, f'{ranker}_target{target}')
+            ranker_configs.add(f'{ranker}_target{target}')
+        else:
+            key = (epsilon, ranker)
+            ranker_configs.add(ranker)
+        
+        final_pol = data['pol'][:, -1] * 4
+        final_polarization[key] = final_pol
+    
+    epsilon_list = sorted(epsilon_values)
+    ranker_list = sorted(ranker_configs)
+    
+    n_replicas = final_polarization[list(final_polarization.keys())[0]].shape[0]
+    n_epsilons = len(epsilon_list)
+    n_rankers = len(ranker_list)
+    
+    pol_array = np.full((n_replicas, n_rankers, n_epsilons), np.nan)
+    
+    for i_eps, eps in enumerate(epsilon_list):
+        for i_rank, rank in enumerate(ranker_list):
+            key = (eps, rank)
+            if key in final_polarization:
+                pol_array[:, i_rank, i_eps] = final_polarization[key]
+    
+    return pol_array, epsilon_list, ranker_list
+
+
+
+
+def load_all_final_metrics(results_dir):
+    """
+    Load final values of all metrics from all result files.
+    
+    Args:
+        results_dir: path to directory containing .npz result files
+        
+    Returns:
+        tuple: (metrics_dict, epsilon_list, ranker_list)
+            - metrics_dict: dict with keys 'polarization', 'homophily', 'filter_bubble', 
+                           'gini_success', 'gini_reach', each containing (n_replicas, n_rankers, n_epsilons) array
+            - epsilon_list: sorted list of epsilon values
+            - ranker_list: sorted list of ranker configuration names
+    """
+    import glob
+    
+    final_metrics = {
+        'polarization': {},
+        'homophily': {},
+        'filter_bubble': {},
+        'gini_success': {},
+        'gini_reach': {}
+    }
+    epsilon_values = set()
+    ranker_configs = set()
+    
+    for filepath in glob.glob(f'{results_dir}/*.npz'):
+        base_path = filepath[:-4]
+        data, config = load_results(base_path)
+        
+        epsilon = config['OD']['epsilon']
+        ranker = config['Ranker']['rule']
+        
+        epsilon_values.add(epsilon)
+        
+        if ranker == 'Engagement':
+            alpha = config['Ranker']['alpha']
+            key = (epsilon, f'{ranker}_alpha{alpha}')
+            ranker_configs.add(f'{ranker}_alpha{alpha}')
+        elif ranker in ['Narrative', 'Evil']:
+            target = config['Ranker']['target_opinion']
+            key = (epsilon, f'{ranker}_target{target}')
+            ranker_configs.add(f'{ranker}_target{target}')
+        else:
+            key = (epsilon, ranker)
+            ranker_configs.add(ranker)
+        
+        final_metrics['polarization'][key] = data['pol'][:, -1] * 4
+        final_metrics['homophily'][key] = data['homophily'][:, -1]
+        final_metrics['filter_bubble'][key] = data['filter_bubble'][:, -1]
+        final_metrics['gini_success'][key] = data['gini_success'][:, -1]
+        final_metrics['gini_reach'][key] = data['gini_reach'][:, -1]
+    
+    epsilon_list = sorted(epsilon_values)
+    ranker_list = sorted(ranker_configs)
+    
+    n_replicas = final_metrics['polarization'][list(final_metrics['polarization'].keys())[0]].shape[0]
+    n_epsilons = len(epsilon_list)
+    n_rankers = len(ranker_list)
+    
+    metrics_dict = {}
+    
+    for metric_name in final_metrics.keys():
+        metric_array = np.full((n_replicas, n_rankers, n_epsilons), np.nan)
+        
+        for i_eps, eps in enumerate(epsilon_list):
+            for i_rank, rank in enumerate(ranker_list):
+                key = (eps, rank)
+                if key in final_metrics[metric_name]:
+                    metric_array[:, i_rank, i_eps] = final_metrics[metric_name][key]
+        
+        metrics_dict[metric_name] = metric_array
+    
+    return metrics_dict, epsilon_list, ranker_list
+
+
+def plot_polarization_heatmap(metrics_dict, epsilon_list, ranker_list):
+    """
+    Create heatmap of average final polarization.
+    
+    Args:
+        metrics_dict: dict containing metric arrays from load_all_final_metrics
+        epsilon_list: list of epsilon values
+        ranker_list: list of ranker configuration names
+        
+    Returns:
+        fig: matplotlib figure
+    """
+    pol_array = metrics_dict['polarization']
+    pol_mean = np.nanmean(pol_array, axis=0)
+    
+    n_epsilons = len(epsilon_list)
+    n_rankers = len(ranker_list)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    im = ax.imshow(pol_mean, aspect='auto', origin='lower', cmap='viridis')
+    
+    ax.set_xticks(range(n_epsilons))
+    ax.set_xticklabels([f'{eps:.3f}' for eps in epsilon_list], rotation=45, ha='right')
+    
+    ax.set_yticks(range(n_rankers))
+    ax.set_yticklabels(ranker_list, fontsize=9)
+    
+    ax.set_xlabel('Epsilon (ε)', fontsize=12)
+    ax.set_ylabel('Ranker Configuration', fontsize=12)
+    ax.set_title('Average Final Polarization (across 100 replicas)', fontsize=14)
+    
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label('Polarization (4×variance)', fontsize=12)
+    
+    for i in range(n_rankers):
+        for j in range(n_epsilons):
+            if not np.isnan(pol_mean[i, j]):
+                text_color = 'white' if pol_mean[i, j] > np.nanmean(pol_mean) else 'black'
+                ax.text(j, i, f'{pol_mean[i, j]:.2f}',
+                       ha='center', va='center', 
+                       color=text_color, fontsize=7)
+    
+    plt.tight_layout()
+    return fig
+
+
+def plot_homophily_heatmap(metrics_dict, epsilon_list, ranker_list):
+    """
+    Create heatmap of average final homophily.
+    
+    Args:
+        metrics_dict: dict containing metric arrays from load_all_final_metrics
+        epsilon_list: list of epsilon values
+        ranker_list: list of ranker configuration names
+        
+    Returns:
+        fig: matplotlib figure
+    """
+    homophily_array = metrics_dict['homophily']
+    homophily_mean = np.nanmean(homophily_array, axis=0)
+    
+    n_epsilons = len(epsilon_list)
+    n_rankers = len(ranker_list)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    im = ax.imshow(homophily_mean, aspect='auto', origin='lower', cmap='viridis')
+    
+    ax.set_xticks(range(n_epsilons))
+    ax.set_xticklabels([f'{eps:.3f}' for eps in epsilon_list], rotation=45, ha='right')
+    
+    ax.set_yticks(range(n_rankers))
+    ax.set_yticklabels(ranker_list, fontsize=9)
+    
+    ax.set_xlabel('Epsilon (ε)', fontsize=12)
+    ax.set_ylabel('Ranker Configuration', fontsize=12)
+    ax.set_title('Average Final Homophily (across 100 replicas)', fontsize=14)
+    
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label('Homophily', fontsize=12)
+    
+    for i in range(n_rankers):
+        for j in range(n_epsilons):
+            if not np.isnan(homophily_mean[i, j]):
+                text_color = 'white' if homophily_mean[i, j] > np.nanmean(homophily_mean) else 'black'
+                ax.text(j, i, f'{homophily_mean[i, j]:.2f}',
+                       ha='center', va='center', 
+                       color=text_color, fontsize=7)
+    
+    plt.tight_layout()
+    return fig
+
+
+def plot_filter_bubble_heatmap(metrics_dict, epsilon_list, ranker_list):
+    """
+    Create heatmap of average final filter bubble strength.
+    
+    Args:
+        metrics_dict: dict containing metric arrays from load_all_final_metrics
+        epsilon_list: list of epsilon values
+        ranker_list: list of ranker configuration names
+        
+    Returns:
+        fig: matplotlib figure
+    """
+    fb_array = metrics_dict['filter_bubble']
+    fb_mean = np.nanmean(fb_array, axis=0)
+    
+    n_epsilons = len(epsilon_list)
+    n_rankers = len(ranker_list)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    im = ax.imshow(fb_mean, aspect='auto', origin='lower', cmap='viridis')
+    
+    ax.set_xticks(range(n_epsilons))
+    ax.set_xticklabels([f'{eps:.3f}' for eps in epsilon_list], rotation=45, ha='right')
+    
+    ax.set_yticks(range(n_rankers))
+    ax.set_yticklabels(ranker_list, fontsize=9)
+    
+    ax.set_xlabel('Epsilon (ε)', fontsize=12)
+    ax.set_ylabel('Ranker Configuration', fontsize=12)
+    ax.set_title('Average Final Filter Bubble Strength (across 100 replicas)', fontsize=14)
+    
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label('Filter Bubble Strength', fontsize=12)
+    
+    for i in range(n_rankers):
+        for j in range(n_epsilons):
+            if not np.isnan(fb_mean[i, j]):
+                text_color = 'white' if fb_mean[i, j] > np.nanmean(fb_mean) else 'black'
+                ax.text(j, i, f'{fb_mean[i, j]:.2f}',
+                       ha='center', va='center', 
+                       color=text_color, fontsize=7)
+    
+    plt.tight_layout()
+    return fig
+
+
+def plot_gini_success_heatmap(metrics_dict, epsilon_list, ranker_list):
+    """
+    Create heatmap of average final success inequality (Gini).
+    
+    Args:
+        metrics_dict: dict containing metric arrays from load_all_final_metrics
+        epsilon_list: list of epsilon values
+        ranker_list: list of ranker configuration names
+        
+    Returns:
+        fig: matplotlib figure
+    """
+    gini_array = metrics_dict['gini_success']
+    gini_mean = np.nanmean(gini_array, axis=0)
+    
+    n_epsilons = len(epsilon_list)
+    n_rankers = len(ranker_list)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    im = ax.imshow(gini_mean, aspect='auto', origin='lower', cmap='viridis')
+    
+    ax.set_xticks(range(n_epsilons))
+    ax.set_xticklabels([f'{eps:.3f}' for eps in epsilon_list], rotation=45, ha='right')
+    
+    ax.set_yticks(range(n_rankers))
+    ax.set_yticklabels(ranker_list, fontsize=9)
+    
+    ax.set_xlabel('Epsilon (ε)', fontsize=12)
+    ax.set_ylabel('Ranker Configuration', fontsize=12)
+    ax.set_title('Average Final Success Inequality - Gini (across 100 replicas)', fontsize=14)
+    
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label('Gini Coefficient', fontsize=12)
+    
+    for i in range(n_rankers):
+        for j in range(n_epsilons):
+            if not np.isnan(gini_mean[i, j]):
+                text_color = 'white' if gini_mean[i, j] > np.nanmean(gini_mean) else 'black'
+                ax.text(j, i, f'{gini_mean[i, j]:.2f}',
+                       ha='center', va='center', 
+                       color=text_color, fontsize=7)
+    
+    plt.tight_layout()
+    return fig
+
+
+def plot_gini_reach_heatmap(metrics_dict, epsilon_list, ranker_list):
+    """
+    Create heatmap of average final reach inequality (Gini).
+    
+    Args:
+        metrics_dict: dict containing metric arrays from load_all_final_metrics
+        epsilon_list: list of epsilon values
+        ranker_list: list of ranker configuration names
+        
+    Returns:
+        fig: matplotlib figure
+    """
+    gini_array = metrics_dict['gini_reach']
+    gini_mean = np.nanmean(gini_array, axis=0)
+    
+    n_epsilons = len(epsilon_list)
+    n_rankers = len(ranker_list)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    im = ax.imshow(gini_mean, aspect='auto', origin='lower', cmap='viridis')
+    
+    ax.set_xticks(range(n_epsilons))
+    ax.set_xticklabels([f'{eps:.3f}' for eps in epsilon_list], rotation=45, ha='right')
+    
+    ax.set_yticks(range(n_rankers))
+    ax.set_yticklabels(ranker_list, fontsize=9)
+    
+    ax.set_xlabel('Epsilon (ε)', fontsize=12)
+    ax.set_ylabel('Ranker Configuration', fontsize=12)
+    ax.set_title('Average Final Reach Inequality - Gini (across 100 replicas)', fontsize=14)
+    
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label('Gini Coefficient', fontsize=12)
+    
+    for i in range(n_rankers):
+        for j in range(n_epsilons):
+            if not np.isnan(gini_mean[i, j]):
+                text_color = 'white' if gini_mean[i, j] > np.nanmean(gini_mean) else 'black'
+                ax.text(j, i, f'{gini_mean[i, j]:.2f}',
+                       ha='center', va='center', 
+                       color=text_color, fontsize=7)
+    
+    plt.tight_layout()
+    return fig

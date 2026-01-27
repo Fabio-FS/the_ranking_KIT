@@ -31,7 +31,7 @@ def initialize(G, info):
     # Store BCM parameters as graph attributes for easy access
     G['epsilon'] = info["OD"].get('epsilon', 0.2)  # Confidence bound: only consider opinions within ±epsilon
     G['mu'] = info["OD"].get('mu', 0.1)  # Convergence rate: step size toward acceptable opinions
-    
+    G['agent_cumulative_likes'] = np.zeros(n_users, dtype=np.int32)
     # Neighbor relationships are already precomputed in build_graph (neighbor_matrix)
     
     # Set up post storage system
@@ -110,9 +110,13 @@ def _read_and_evaluate_posts(G, n_users, post_slot, selected_authors, selected_t
         
         # Count likes per post using bincount (handles duplicates automatically)
         like_counts = np.bincount(flat_indices, minlength=post_likes.size)
-        
+
         # Add likes to post_likes array (in-place modification)
         post_likes += like_counts.reshape(post_likes.shape)
+
+        # Update agent cumulative likes (count how many likes each author received)
+        author_like_counts = np.bincount(like_authors, minlength=n_users)
+        G['agent_cumulative_likes'] += author_like_counts
     
     # Update opinions: move toward posts within epsilon by convergence rate mu
     # Only opinions where within_epsilon=True are updated (boolean mask multiplication)
