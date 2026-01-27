@@ -398,18 +398,176 @@ def plot_first_replicas(data, config, n_replicas_to_plot=9):
     plt.tight_layout()
     return fig
 
-def plot_ranker_comparison(results_list):
+def plot_ranker_comparison_light(results_list, colors=None):
     """
     Compare multiple rankers side-by-side.
     
     Args:
         results_list: list of [data, config] pairs from different rankers
                      e.g., [[data1, config1], [data2, config2], ...]
+        colors: optional list of colors (one per ranker). If None, uses automatic colors.
     """
     fig = plt.figure(figsize=(18, 10))
     
     n_rankers = len(results_list)
-    colors = plt.cm.tab10(np.linspace(0, 1, n_rankers))
+    
+    # Use provided colors or generate automatic ones
+    if colors is None:
+        colors = plt.cm.tab10(np.linspace(0, 1, n_rankers))
+    
+    # Extract ranker names with parameters for legend
+    ranker_names = []
+    for data, config in results_list:
+        rule = config['Ranker']['rule']
+        if rule == 'Engagement':
+            alpha = config['Ranker'].get('alpha', 1.0)
+            ranker_names.append(f'{rule} (α={alpha})')
+        elif rule == 'Narrative':
+            target = config['Ranker'].get('target_opinion', 0.5)
+            ranker_names.append(f'{rule} (target={target})')
+        else:
+            ranker_names.append(rule)
+    
+    # Top row: Opinion dynamics
+    ax1 = plt.subplot(2, 3, 1)
+    for idx, (data, config) in enumerate(results_list):
+        n_replicas = data['n_replicas']
+        time = np.arange(data['mean'].shape[1])
+        
+        # Plot all replicas
+        #for rep in range(n_replicas):
+        #    ax1.plot(time, data['mean'][rep], alpha=0.1, color=colors[idx], linewidth=0.5)
+        
+        # Plot average
+        mean_avg = np.mean(data['mean'], axis=0)
+        ax1.plot(time, mean_avg, color=colors[idx], linewidth=2.5, label=ranker_names[idx])
+    
+    ax1.axhline(0.5, color='gray', linestyle='--', alpha=0.3)
+    ax1.set_ylim(0, 1)
+    ax1.set_xlabel('Time')
+    ax1.set_ylabel('Mean Opinion')
+    ax1.set_title('Opinion Mean Evolution')
+    ax1.legend(loc='best')
+    ax1.grid(True, alpha=0.3)
+    
+    ax2 = plt.subplot(2, 3, 2)
+    for idx, (data, config) in enumerate(results_list):
+        n_replicas = data['n_replicas']
+        time = np.arange(data['pol'].shape[1])
+        
+        # Plot all replicas
+        #for rep in range(n_replicas):
+        #    ax2.plot(time, data['pol'][rep] * 4, alpha=0.1, color=colors[idx], linewidth=0.5)
+        
+        # Plot average
+        pol_avg = np.mean(data['pol'], axis=0) * 4
+        ax2.plot(time, pol_avg, color=colors[idx], linewidth=2.5, label=ranker_names[idx])
+    
+    ax2.set_xlabel('Time')
+    ax2.set_ylabel('Polarization')
+    ax2.set_title('Polarization Evolution')
+    ax2.grid(True, alpha=0.3)
+    
+    ax3 = plt.subplot(2, 3, 3)
+    for idx, (data, config) in enumerate(results_list):
+        n_replicas = data['n_replicas']
+        time = np.arange(data['homophily'].shape[1])
+        
+        # Plot all replicas
+        #for rep in range(n_replicas):
+        #    ax3.plot(time, data['homophily'][rep], alpha=0.1, color=colors[idx], linewidth=0.5)
+        
+        # Plot average
+        homophily_avg = np.mean(data['homophily'], axis=0)
+        ax3.plot(time, homophily_avg, color=colors[idx], linewidth=2.5, label=ranker_names[idx])
+    
+    ax3.set_xlabel('Time')
+    ax3.set_ylabel('Homophily')
+    ax3.set_title('Network Homophily')
+    ax3.grid(True, alpha=0.3)
+    
+    # Bottom row: Filter bubble and Gini coefficients
+    ax4 = plt.subplot(2, 3, 4)
+    for idx, (data, config) in enumerate(results_list):
+        n_replicas = data['n_replicas']
+        time = np.arange(data['filter_bubble'].shape[1])
+        
+        # Plot all replicas
+        #for rep in range(n_replicas):
+        #    ax4.plot(time, data['filter_bubble'][rep], alpha=0.1, color=colors[idx], linewidth=0.5)
+        
+        # Plot average
+        fb_avg = np.mean(data['filter_bubble'], axis=0)
+        ax4.plot(time, fb_avg, color=colors[idx], linewidth=2.5, label=ranker_names[idx])
+    
+    ax4.set_xlabel('Time')
+    ax4.set_ylabel('Filter Bubble Strength')
+    ax4.set_title('Filter Bubble Evolution')
+    ax4.grid(True, alpha=0.3)
+    
+    ax5 = plt.subplot(2, 3, 5)
+    for idx, (data, config) in enumerate(results_list):
+        n_replicas = data['n_replicas']
+        time = np.arange(data['gini_success'].shape[1])
+        
+        # Plot all replicas
+        #for rep in range(n_replicas):
+        #    ax5.plot(time, data['gini_success'][rep], alpha=0.1, color=colors[idx], linewidth=0.5)
+        
+        # Plot average
+        gini_s_avg = np.mean(data['gini_success'], axis=0)
+        ax5.plot(time, gini_s_avg, color=colors[idx], linewidth=2.5, label=ranker_names[idx])
+    
+    ax5.set_xlabel('Time')
+    ax5.set_ylabel('Gini Coefficient')
+    ax5.set_title('Success Inequality (Gini)')
+    ax5.grid(True, alpha=0.3)
+    
+    ax6 = plt.subplot(2, 3, 6)
+    for idx, (data, config) in enumerate(results_list):
+        n_replicas = data['n_replicas']
+        time = np.arange(data['gini_reach'].shape[1])
+        
+        # Plot all replicas
+        #for rep in range(n_replicas):
+        #    ax6.plot(time, data['gini_reach'][rep], alpha=0.1, color=colors[idx], linewidth=0.5)
+        
+        # Plot average
+        gini_r_avg = np.mean(data['gini_reach'], axis=0)
+        ax6.plot(time, gini_r_avg, color=colors[idx], linewidth=2.5, label=ranker_names[idx])
+    
+    ax6.set_xlabel('Time')
+    ax6.set_ylabel('Gini Coefficient')
+    ax6.set_title('Reach Inequality (Gini)')
+    ax6.grid(True, alpha=0.3)
+    
+    # Overall title
+    epsilon = results_list[0][1]['OD']['epsilon']
+    n_users = results_list[0][1]['Graph']['n']
+    fig.suptitle(f'Ranker Comparison (ε={epsilon}, n={n_users})', fontsize=14, y=0.995)
+    
+    plt.tight_layout()
+    return fig
+
+
+
+
+def plot_ranker_comparison(results_list, colors=None):
+    """
+    Compare multiple rankers side-by-side.
+    
+    Args:
+        results_list: list of [data, config] pairs from different rankers
+                     e.g., [[data1, config1], [data2, config2], ...]
+        colors: optional list of colors (one per ranker). If None, uses automatic colors.
+    """
+    fig = plt.figure(figsize=(18, 10))
+    
+    n_rankers = len(results_list)
+    
+    # Use provided colors or generate automatic ones
+    if colors is None:
+        colors = plt.cm.tab10(np.linspace(0, 1, n_rankers))
     
     # Extract ranker names with parameters for legend
     ranker_names = []
@@ -462,7 +620,6 @@ def plot_ranker_comparison(results_list):
     ax2.set_xlabel('Time')
     ax2.set_ylabel('Polarization')
     ax2.set_title('Polarization Evolution')
-    #ax2.legend(loc='best')
     ax2.grid(True, alpha=0.3)
     
     ax3 = plt.subplot(2, 3, 3)
@@ -481,7 +638,6 @@ def plot_ranker_comparison(results_list):
     ax3.set_xlabel('Time')
     ax3.set_ylabel('Homophily')
     ax3.set_title('Network Homophily')
-    #ax3.legend(loc='best')
     ax3.grid(True, alpha=0.3)
     
     # Bottom row: Filter bubble and Gini coefficients
@@ -501,7 +657,6 @@ def plot_ranker_comparison(results_list):
     ax4.set_xlabel('Time')
     ax4.set_ylabel('Filter Bubble Strength')
     ax4.set_title('Filter Bubble Evolution')
-    #ax4.legend(loc='best')
     ax4.grid(True, alpha=0.3)
     
     ax5 = plt.subplot(2, 3, 5)
@@ -520,7 +675,6 @@ def plot_ranker_comparison(results_list):
     ax5.set_xlabel('Time')
     ax5.set_ylabel('Gini Coefficient')
     ax5.set_title('Success Inequality (Gini)')
-    #ax5.legend(loc='best')
     ax5.grid(True, alpha=0.3)
     
     ax6 = plt.subplot(2, 3, 6)
@@ -539,7 +693,6 @@ def plot_ranker_comparison(results_list):
     ax6.set_xlabel('Time')
     ax6.set_ylabel('Gini Coefficient')
     ax6.set_title('Reach Inequality (Gini)')
-    #ax6.legend(loc='best')
     ax6.grid(True, alpha=0.3)
     
     # Overall title
@@ -549,3 +702,29 @@ def plot_ranker_comparison(results_list):
     
     plt.tight_layout()
     return fig
+
+
+
+
+
+def print_ranker_order(results_list):
+    """
+    Print the order of rankers in the results list.
+    
+    Args:
+        results_list: list of [data, config] pairs
+    """
+    print("Ranker order:")
+    print("-" * 40)
+    for idx, (data, config) in enumerate(results_list):
+        rule = config['Ranker']['rule']
+        if rule == 'Engagement':
+            alpha = config['Ranker'].get('alpha', 1.0)
+            name = f'{rule} (α={alpha})'
+        elif rule == 'Narrative':
+            target = config['Ranker'].get('target_opinion', 0.5)
+            name = f'{rule} (target={target})'
+        else:
+            name = rule
+        
+        print(f"{idx}: {name}")
