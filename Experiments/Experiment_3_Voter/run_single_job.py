@@ -1,32 +1,7 @@
 import sys
 import os
 import time
-
-project_root = '/hkfs/work/workspace/scratch/eq2170-Rankers_OD/the_ranking_KIT'
-sys.path.insert(0, project_root)
-
-# DEBUG: Print everything
-print("="*50)
-print(f"Project root: {project_root}")
-print(f"Does it exist? {os.path.exists(project_root)}")
-print(f"Contents: {os.listdir(project_root)}")
-print(f"Does src/ exist? {os.path.exists(os.path.join(project_root, 'src'))}")
-print(f"sys.path after insert: {sys.path[:3]}")
-print("="*50)
-
-# Try importing step by step
-try:
-    import src
-    print(f"✓ Found src at: {src.__file__}")
-except ImportError as e:
-    print(f"✗ Cannot import src: {e}")
-
-try:
-    import src.simulation
-    print(f"✓ Found src.simulation")
-except ImportError as e:
-    print(f"✗ Cannot import src.simulation: {e}")
-
+from multiprocessing import Pool
 
 # Get absolute path to this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -37,15 +12,9 @@ project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
 # Add to Python path
 sys.path.insert(0, project_root)
 
-# Debug print (remove after testing)
-print(f"Script dir: {script_dir}")
-print(f"Project root: {project_root}")
-print(f"Project root contents: {os.listdir(project_root)}")
-
 import json
 import itertools
 import numpy as np
-
 
 from src.simulation import run_replicas
 from src.analysis import save_results
@@ -158,33 +127,24 @@ def run_job(job_id, exp_dir, n_replicas=100):
         exp_dir: path to experiment directory
         n_replicas: number of replicas to run
     """
-    # Load configurations
     config, param_grid = load_config(exp_dir)
-    
-    # Generate all combinations
     combinations = generate_combinations(param_grid)
-    
-    print(f"Total combinations: {len(combinations)}")
     
     if job_id >= len(combinations):
         print(f"ERROR: job_id {job_id} exceeds combinations ({len(combinations)})")
-        sys.exit(1)
+        return
     
-    # Get parameters for this job
     params = combinations[job_id]
     
     print(f"\nJob {job_id} parameters:")
     for key, val in params.items():
         print(f"  {key}: {val}")
     
-    # Update config with these parameters
     info = update_config(config, params)
     
-    # Run simulation
     print(f"\nRunning {n_replicas} replicas...")
     results = run_replicas(info, n_replicas=n_replicas, n_save_trajectories=5)
     
-    # Save results
     filename = make_filename(params)
     results_dir = f"{exp_dir}/results"
     os.makedirs(results_dir, exist_ok=True)
@@ -196,17 +156,37 @@ def run_job(job_id, exp_dir, n_replicas=100):
     print(f"Saved to: {filepath}.npz")
 
 
+def run_parallel(array_task_id, exp_dir, n_replicas=100):
+    """
+    Run 10 combinations in parallel for this array task.
+    """
+    config, param_grid = load_config(exp_dir)
+    combinations = generate_combinations(param_grid)
+    
+    combinations_per_task = 10
+    start_id = array_task_id * combinations_per_task
+    end_id = min(start_id + combinations_per_task, len(combinations))
+    
+    job_ids = range(start_id, end_id)
+    
+    print(f"Total combinations: {len(combinations)}")
+    print(f"Array task {array_task_id}: running combinations {start_id} to {end_id-1}")
+    
+    with Pool(processes=len(job_ids)) as pool:
+        pool.starmap(run_job, [(jid, exp_dir, n_replicas) for jid in job_ids])
+
+
 if __name__ == "__main__":
     start_time = time.time()
     
     if len(sys.argv) < 2:
-        print("Usage: python run_single_job.py <job_id> [experiment_dir]")
+        print("Usage: python run_single_job.py <array_task_id> [experiment_dir]")
         sys.exit(1)
     
-    job_id = int(sys.argv[1])
+    array_task_id = int(sys.argv[1])
     exp_dir = sys.argv[2] if len(sys.argv) > 2 else "."
     
-    run_job(job_id, exp_dir)
+    run_parallel(array_task_id, exp_dir)
     
     elapsed_time = time.time() - start_time
     print(f"\n{'='*50}")
