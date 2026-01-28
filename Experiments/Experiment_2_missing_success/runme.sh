@@ -3,9 +3,9 @@
 #SBATCH --output=logs/job_%A_%a.out
 #SBATCH --error=logs/job_%A_%a.err
 #SBATCH --array=0-49          # 10 epsilons × 5 alphas = 50 jobs
-#SBATCH --time=24:00:00       
+#SBATCH --time=2:00:00       
 #SBATCH --cpus-per-task=1     
-#SBATCH --mem=16G              
+#SBATCH --mem=3G              
 #SBATCH --partition=cpuonly   
 
 echo "=================================================="

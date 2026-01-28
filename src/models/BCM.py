@@ -31,11 +31,10 @@ def initialize(G, info):
     # Store BCM parameters as graph attributes for easy access
     G['epsilon'] = info["OD"].get('epsilon', 0.2)  # Confidence bound: only consider opinions within ±epsilon
     G['mu'] = info["OD"].get('mu', 0.1)  # Convergence rate: step size toward acceptable opinions
-    G['agent_cumulative_likes'] = np.zeros(n_users, dtype=np.int32)
-    # Neighbor relationships are already precomputed in build_graph (neighbor_matrix)
-    
     # Set up post storage system
     n_users = G.vcount()
+
+    G['agent_cumulative_likes'] = np.zeros(n_users, dtype=np.int32)  # Total likes received by each user   
     history_size = info.get('post_history', 50)  # Circular buffer size for posts
     
     # Initialize post arrays:
