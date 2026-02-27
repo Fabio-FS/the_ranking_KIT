@@ -791,8 +791,6 @@ def load_all_final_polarization(results_dir):
     return pol_array, epsilon_list, ranker_list
 
 
-
-
 def load_all_final_metrics(results_dir):
     """
     Load final values of all metrics from all result files.
@@ -803,7 +801,8 @@ def load_all_final_metrics(results_dir):
     Returns:
         tuple: (metrics_dict, epsilon_list, ranker_list)
             - metrics_dict: dict with keys 'polarization', 'homophily', 'filter_bubble', 
-                           'gini_success', 'gini_reach', each containing (n_replicas, n_rankers, n_epsilons) array
+                           'gini_success', 'gini_reach', 'user_success', each containing 
+                           (n_replicas, n_rankers, n_epsilons) array
             - epsilon_list: sorted list of epsilon values
             - ranker_list: sorted list of ranker configuration names
     """
@@ -814,7 +813,8 @@ def load_all_final_metrics(results_dir):
         'homophily': {},
         'filter_bubble': {},
         'gini_success': {},
-        'gini_reach': {}
+        'gini_reach': {},
+        'user_success': {}
     }
     epsilon_values = set()
     ranker_configs = set()
@@ -828,7 +828,7 @@ def load_all_final_metrics(results_dir):
         
         epsilon_values.add(epsilon)
         
-        if ranker == 'Engagement':
+        if ranker in ['Engagement', 'User_Success']:
             alpha = config['Ranker']['alpha']
             key = (epsilon, f'{ranker}_alpha{alpha}')
             ranker_configs.add(f'{ranker}_alpha{alpha}')
@@ -845,6 +845,12 @@ def load_all_final_metrics(results_dir):
         final_metrics['filter_bubble'][key] = data['filter_bubble'][:, -1]
         final_metrics['gini_success'][key] = data['gini_success'][:, -1]
         final_metrics['gini_reach'][key] = data['gini_reach'][:, -1]
+        
+        if 'user_success' in data:
+            final_metrics['user_success'][key] = data['user_success'][:, -1]
+        else:
+            n_replicas = data['pol'].shape[0]
+            final_metrics['user_success'][key] = np.full(n_replicas, -1.0)
     
     epsilon_list = sorted(epsilon_values)
     ranker_list = sorted(ranker_configs)
@@ -868,6 +874,53 @@ def load_all_final_metrics(results_dir):
     
     return metrics_dict, epsilon_list, ranker_list
 
+
+
+def plot_user_success_heatmap(metrics_dict, epsilon_list, ranker_list):
+    """
+    Create heatmap of average final user success.
+    
+    Args:
+        metrics_dict: dict containing metric arrays from load_all_final_metrics
+        epsilon_list: list of epsilon values
+        ranker_list: list of ranker configuration names
+        
+    Returns:
+        fig: matplotlib figure
+    """
+    user_success_array = metrics_dict['user_success']
+    user_success_mean = np.nanmean(user_success_array, axis=0)
+    
+    n_epsilons = len(epsilon_list)
+    n_rankers = len(ranker_list)
+    
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    im = ax.imshow(user_success_mean, aspect='auto', origin='lower', cmap='viridis')
+    
+    ax.set_xticks(range(n_epsilons))
+    ax.set_xticklabels([f'{eps:.3f}' for eps in epsilon_list], rotation=45, ha='right')
+    
+    ax.set_yticks(range(n_rankers))
+    ax.set_yticklabels(ranker_list, fontsize=9)
+    
+    ax.set_xlabel('Epsilon (ε)', fontsize=12)
+    ax.set_ylabel('Ranker Configuration', fontsize=12)
+    ax.set_title('Average Final User Success (across 100 replicas)', fontsize=14)
+    
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label('User Success', fontsize=12)
+    
+    for i in range(n_rankers):
+        for j in range(n_epsilons):
+            if not np.isnan(user_success_mean[i, j]):
+                text_color = 'white' if user_success_mean[i, j] > np.nanmean(user_success_mean) else 'black'
+                ax.text(j, i, f'{user_success_mean[i, j]:.2f}',
+                       ha='center', va='center', 
+                       color=text_color, fontsize=7)
+    
+    plt.tight_layout()
+    return fig
 
 def plot_polarization_heatmap(metrics_dict, epsilon_list, ranker_list):
     """
@@ -914,6 +967,7 @@ def plot_polarization_heatmap(metrics_dict, epsilon_list, ranker_list):
     
     plt.tight_layout()
     return fig
+
 
 
 def plot_homophily_heatmap(metrics_dict, epsilon_list, ranker_list):
