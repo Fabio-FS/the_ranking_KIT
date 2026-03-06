@@ -4,69 +4,27 @@ import json
 import os
 
 
-
 def save_results(results, base_filepath):
-    """
-    Save results efficiently: NPZ for data, JSON for config.
-    """
-    import json
+    os.makedirs(os.path.dirname(base_filepath), exist_ok=True)
     
-    # Extract config
+    # Separate info (not saveable in npz) from arrays
     info = results['info']
     
-    # Save numerical data as NPZ
-    npz_path = base_filepath + '.npz'
-    os.makedirs(os.path.dirname(npz_path), exist_ok=True)
+    arrays = {k: v for k, v in results.items() if k != 'info'}
+    np.savez_compressed(base_filepath + '.npz', **arrays)
     
-    results_copy = results.copy()
-    results_copy.pop('info')  # Remove info from NPZ
-    np.savez_compressed(npz_path, **results_copy)
-    
-    # Save config as JSON (human-readable)
-    json_path = base_filepath + '_config.json'
-    with open(json_path, 'w') as f:
+    with open(base_filepath + '_config.json', 'w') as f:
         json.dump(info, f, indent=2)
-    
-    print(f"Saved data: {npz_path}")
-    print(f"Saved config: {json_path}")
-
 
 
 def load_results(base_filepath):
-    """
-    Load results from NPZ and JSON files.
+    loaded = np.load(base_filepath + '.npz', allow_pickle=True)
+    results = {key: loaded[key] for key in loaded.files}
     
-    Args:
-        base_filepath: path without extension (e.g., 'results/random_ranker_eps02')
-        
-    Returns:
-        tuple: (data_dict, config_dict)
-            - data_dict: dict with all numerical arrays (mean, pol, etc.)
-            - config_dict: simulation configuration (info)
-    """
-    import json
+    with open(base_filepath + '_config.json', 'r') as f:
+        results['info'] = json.load(f)
     
-    # Load numerical data from NPZ
-    npz_path = base_filepath + '.npz'
-    loaded = np.load(npz_path, allow_pickle=True)
-    
-    # Convert to regular dict (npz returns special dict-like object)
-    data_dict = {key: loaded[key] for key in loaded.files}
-    
-    # Load config from JSON
-    json_path = base_filepath + '_config.json'
-    with open(json_path, 'r') as f:
-        config_dict = json.load(f)
-    
-    print(f"Loaded data from: {npz_path}")
-    print(f"Loaded config from: {json_path}")
-    print(f"Contains {data_dict.get('n_replicas', 'N/A')} replicas")
-    
-    return data_dict, config_dict
-
-
-
-
+    return results
 
 
 

@@ -6,6 +6,8 @@ import numpy as np
 
 
 
+
+
 def build_graph(info):
     if "Graph" in info:
         g_type = info["Graph"].get("type", "NULL")
@@ -29,18 +31,27 @@ def build_graph(info):
     else:
         G = ig.Graph.Erdos_Renyi(n=100, p=0.1, directed=False, loops=False)
 
-    # Precompute neighbor lists and neighbor matrix
     n_users = G.vcount()
-    
-    # Save neighbor lists as vertex attribute
+    history_size = info.get('post_history', 50)
+    all_times = np.arange(history_size)
+
     G.vs['neighbors'] = [np.array(G.neighbors(i)) for i in range(n_users)]
-    
-    # Build neighbor matrix from saved lists
+
     neighbor_matrix = np.zeros((n_users, n_users), dtype=bool)
     for i in range(n_users):
         if len(G.vs[i]['neighbors']) > 0:
             neighbor_matrix[i, G.vs[i]['neighbors']] = True
-    
     G['neighbor_matrix'] = neighbor_matrix
 
+    # Precompute per-user neighbor post index arrays (used by all rankers)
+    neighbor_authors = []
+    neighbor_times = []
+    for i in range(n_users):
+        neighbors = G.vs[i]['neighbors']
+        neighbor_authors.append(np.repeat(neighbors, history_size))
+        neighbor_times.append(np.tile(all_times, len(neighbors)))
+
+    G['neighbor_authors'] = neighbor_authors
+    G['neighbor_times'] = neighbor_times
+    G['edges'] = np.array(G.get_edgelist())
     return G

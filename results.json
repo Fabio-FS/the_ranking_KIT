@@ -1,0 +1,1 @@
+{"info": {"Graph": {"type": "ER", "n": 100, "p": 0.1}, "OD": {"model": "BCM", "epsilon": 0.3, "mu": 0.1}, "Ranker": {"rule": "Random"}, "Simulation_details": {"n_steps": 2000, "convergence_window": 50, "convergence_delta": 0.0001}, "post_history": 50, "k_posts": 5}, "n_replicas": 10, "checkpoints": 

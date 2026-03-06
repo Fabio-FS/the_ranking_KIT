@@ -5,13 +5,18 @@ from src.models.model_utilities import (
     compute_filter_bubble, check_convergence
 )
 
-# DW (Deffuant-Weisbuch) variant of BCM.
-# Agents update sequentially, once per post, nudging opinion toward each within-epsilon post one at a time.
+# Negative influence BCM (DW variant) — assimilation-contrast model.
+# Agents move toward posts within epsilon_1 (assimilation),
+# and away from posts beyond epsilon_2 (repulsion/contrast).
+# Posts in the dead zone [epsilon_1, epsilon_2] have no effect.
+# References: Jager & Amblard (2005); Deffuant et al. (2002);
+#             psychological grounding: Sherif & Hovland (1961) Social Judgment Theory.
 
 
 def initialize(G, info):
     G.vs['opinion'] = np.random.rand(G.vcount())
-    G['epsilon'] = info["OD"].get('epsilon', 0.2)
+    G['epsilon'] = info["OD"].get('epsilon_1', 0.2)
+    G['epsilon2'] = info["OD"].get('epsilon_2', 0.6)
     G['mu'] = info["OD"].get('mu', 0.1)
     n_users = G.vcount()
     initialize_tracking(G, info, n_users)
@@ -27,16 +32,19 @@ def _read_and_evaluate_posts(G, n_users, post_slot, selected_authors, selected_t
     post_ops = np.where(valid, post_opinions[authors, times], current_opinions)
     opinion_diff = post_ops - current_opinions
     abs_diff = np.abs(opinion_diff)
-    within_epsilon = abs_diff < G['epsilon']
-    like_mask = within_epsilon & valid
+
+    assimilate = (abs_diff < G['epsilon']) & valid
+    repulse    = (abs_diff > G['epsilon2']) & valid
 
     slot_abs_diff = np.sum(abs_diff[valid])
     slot_count = np.sum(valid)
 
-    if np.any(like_mask):
-        update_likes(G, like_mask, authors, times, post_likes, n_users)
+    if np.any(assimilate):
+        update_likes(G, assimilate, authors, times, post_likes, n_users)
 
-    current_opinions += G['mu'] * opinion_diff * within_epsilon * like_mask
+    current_opinions += G['mu'] * opinion_diff * assimilate
+    current_opinions -= G['mu'] * opinion_diff * repulse
+    np.clip(current_opinions, 0.0, 1.0, out=current_opinions)
 
     if np.any(valid):
         mark_seen(G, valid, times, post_seen_gen, n_users)

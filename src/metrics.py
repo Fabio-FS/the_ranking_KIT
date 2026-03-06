@@ -1,6 +1,39 @@
 import numpy as np
 import igraph as ig
 
+def compute_timestep_metrics_light(G, selected_posts, post_opinions, post_likes, post_seen_by):
+    """
+    Compute only filter_bubble and homophily, skipping gini calculations.
+    """
+    selected_authors, selected_times = selected_posts
+    n_users = G['N']
+    k = selected_authors.shape[1]
+    current_opinions = np.array(G.vs['opinion'])
+    
+    # Filter bubble strength
+    selected_authors_flat = selected_authors.flatten()
+    selected_times_flat = selected_times.flatten()
+    valid_mask = selected_authors_flat >= 0
+    
+    if np.any(valid_mask):
+        user_indices = np.repeat(np.arange(n_users), k)[valid_mask]
+        post_ops = post_opinions[selected_authors_flat[valid_mask], selected_times_flat[valid_mask]]
+        user_ops = current_opinions[user_indices]
+        filter_bubble = 1 - np.mean(np.abs(user_ops - post_ops))
+    else:
+        filter_bubble = 0.0
+    
+    # Homophily
+    neighbor_matrix = G['neighbor_matrix']
+    opinion_diffs = np.abs(current_opinions[:, None] - current_opinions[None, :])
+    homophily_values = (1 - opinion_diffs)[neighbor_matrix]
+    homophily = np.mean(homophily_values)
+    
+    return filter_bubble, homophily
+
+
+
+
 def compute_timestep_metrics(G, selected_posts, post_opinions, post_likes, post_seen_by):
     """
     Compute metrics for this timestep.
@@ -107,3 +140,11 @@ def record_dying_posts(current_time, post_opinions, post_likes, histogram_1d, hi
     # Update 2D histogram
     for op_idx, like_idx in zip(opinion_bin_indices, like_bin_indices):
         histogram_2d[op_idx, like_idx] += 1
+
+
+
+def compute_homophily(G):
+    opinions = np.array(G.vs['opinion'])
+    edges = G['edges']
+    opinion_diffs = np.abs(opinions[edges[:, 0]] - opinions[edges[:, 1]])
+    return np.mean(1 - opinion_diffs)

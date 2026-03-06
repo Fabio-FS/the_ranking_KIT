@@ -1,4 +1,8 @@
 {
+  "General": {
+    "seed": 42,
+    "n_replicas": 5
+  },
   "Graph": {
         "type" : "ER",
         "n" : 100,
