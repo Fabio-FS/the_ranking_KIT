@@ -17,7 +17,7 @@ echo "=================================================="
 
 CONTAINER_PATH=~/ranking_env.sif
 EXPERIMENT_DIR=$(pwd)
-PROJECT_ROOT=$(cd ../../ && pwd)
+PROJECT_ROOT=$(cd ../../../ && pwd)
 
 mkdir -p $EXPERIMENT_DIR/logs
 mkdir -p $EXPERIMENT_DIR/results
