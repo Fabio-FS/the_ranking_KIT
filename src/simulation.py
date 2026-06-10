@@ -4,10 +4,7 @@ import igraph as ig
 import numpy as np
 from src.graphs import build_graph
 from src.metrics import compute_timestep_metrics_light, compute_homophily
-import src.models.BCM
-import src.models.BCM_HK
-import src.models.BCM_asymmetric
-import src.models.BCM_negative
+import src.models.BCM_dynmu
 
 import src.rankers.random, src.rankers.closest, src.rankers.diverse_engagement
 import src.rankers.engagement, src.rankers.narrative, src.rankers.evil
@@ -16,22 +13,13 @@ from src.rankers.ranker_utilities import get_valid_posts
 
 
 INIT_OD = {
-    'BCM':           src.models.BCM.initialize,
-    'BCM_HK':        src.models.BCM_HK.initialize,
-    'BCM_asymmetric': src.models.BCM_asymmetric.initialize,
-    'BCM_negative':  src.models.BCM_negative.initialize,
+    'BCM_dynmu':           src.models.BCM_dynmu.initialize
 }
 UPDATE = {
-    'BCM':           src.models.BCM.update,
-    'BCM_HK':        src.models.BCM_HK.update,
-    'BCM_asymmetric': src.models.BCM_asymmetric.update,
-    'BCM_negative':  src.models.BCM_negative.update,
+    'BCM_dynmu':           src.models.BCM_dynmu.update
 }
 CHECK_CONVERGENCE = {
-    'BCM':           src.models.BCM.check_convergence,
-    'BCM_HK':        src.models.BCM_HK.check_convergence,
-    'BCM_asymmetric': src.models.BCM_asymmetric.check_convergence,
-    'BCM_negative':  src.models.BCM_negative.check_convergence,
+    'BCM_dynmu':           src.models.BCM_dynmu.check_convergence
 }
 
 INIT_RANKER = {
@@ -89,10 +77,13 @@ def apply_noise(selected_posts, noise, G, post_seen_gen):
 
     return selected_authors, selected_times
 
-def simulate(info, seed=42, homophily_steps=None):
+def simulate(info, seed=42, homophily_steps=None, extra_logs=None):
     """
     homophily_steps: set of step indices where homophily is computed.
                      If None, compute at every step.
+    extra_logs:      list of G.vs[...] attribute names to log per step.
+                     Returned in the result dict under keys 'log_<name>'.
+                     None or [] disables (no overhead, no extra keys).
     """
     np.random.seed(seed)
     import random
@@ -126,10 +117,13 @@ def simulate(info, seed=42, homophily_steps=None):
     delta    = info["Simulation_details"].get('convergence_delta', 1e-4)
     n_users  = G.vcount()
 
-    RES_pol          = np.zeros(n_steps)
+    RES_pol           = np.zeros(n_steps)
     RES_filter_bubble = np.zeros(n_steps)
-    RES_homophily    = np.zeros(n_steps)
-    RES_opinions     = np.zeros((n_steps, n_users))
+    RES_homophily     = np.zeros(n_steps)
+    RES_opinions      = np.zeros((n_steps, n_users))
+
+    extra_logs = extra_logs or []
+    RES_extra = {name: np.zeros((n_steps, n_users)) for name in extra_logs}
 
     convergence_step = n_steps - 1
 
@@ -144,14 +138,14 @@ def simulate(info, seed=42, homophily_steps=None):
         selected_posts = apply_noise(selected_posts, noise, G, post_seen_by)
         fb = update_fn(G, info, selected_posts, post_opinions, post_likes, post_seen_by)
 
-        #selected_posts = ranker_fn(G, info, post_opinions, post_likes, post_seen_by)
-        #fb = update_fn(G, info, selected_posts, post_opinions, post_likes, post_seen_by)
-
         current_opinions = np.array(G.vs['opinion'])
 
-        RES_pol[step]          = np.var(current_opinions)
+        RES_pol[step]           = np.var(current_opinions)
         RES_filter_bubble[step] = fb
-        RES_opinions[step]     = current_opinions
+        RES_opinions[step]      = current_opinions
+
+        for name in extra_logs:
+            RES_extra[name][step] = np.array(G.vs[name])
 
         if homophily_steps is None or step in homophily_steps:
             RES_homophily[step] = compute_homophily(G)
@@ -171,20 +165,25 @@ def simulate(info, seed=42, homophily_steps=None):
     RES_filter_bubble[convergence_step + 1:] = RES_filter_bubble[convergence_step]
     RES_homophily[convergence_step + 1:]     = RES_homophily[convergence_step]
     RES_opinions[convergence_step + 1:]      = RES_opinions[convergence_step]
+    for name, arr in RES_extra.items():
+        arr[convergence_step + 1:] = arr[convergence_step]
 
     n_users = G.vcount()
     final_likes = G['agent_cumulative_likes'].copy() if G['track_cumulative_likes'] else np.zeros(n_users)
 
-    return {
-        'G':               G,
-        'pol':             RES_pol,
-        'filter_bubble':   RES_filter_bubble,
-        'homophily':       RES_homophily,
-        'opinions':        RES_opinions,
+    result = {
+        'G':                G,
+        'pol':              RES_pol,
+        'filter_bubble':    RES_filter_bubble,
+        'homophily':        RES_homophily,
+        'opinions':         RES_opinions,
         'convergence_step': convergence_step,
-        'final_opinions':  np.array(G.vs['opinion']),
-        'final_likes':     final_likes,
+        'final_opinions':   np.array(G.vs['opinion']),
+        'final_likes':      final_likes,
     }
+    for name, arr in RES_extra.items():
+        result[f'log_{name}'] = arr
+    return result
 
 
 def run_replicas(info, n_replicas=100):
