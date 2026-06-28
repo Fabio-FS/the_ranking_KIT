@@ -3,6 +3,13 @@ from typing import Callable
 import numpy as np
 from .agents import Agents
 from .config import Config
+from .fused import (
+    _fused_baseline_col,
+    _fused_similarity_col,
+    _fused_engagement_col,
+    _fused_post_popularity_col,
+    _fused_user_popularity_col,
+)
 
 
 # (agents, nb_table, llr, rng, cfg) -> surfaced candidate columns, shape (N, K)
@@ -61,9 +68,25 @@ def draw_without_replacement(cand_weight: np.ndarray, k: int,
     return np.argsort(keys, axis=1)[:, ::-1][:, :k]
 
 
+def fused_gumbel_noise(n: int, c: int, rng: np.random.Generator) -> np.ndarray:
+    """Gumbel(0,1) noise array (N, C) for the fused single-pass kernels."""
+    g = rng.random((n, c), dtype=np.float32)
+    np.clip(g, 1e-7, 1.0, out=g)
+    return -np.log(-np.log(g))
+
+
 # ── Rankers ───────────────────────────────────────────────────────────────────
 @register_ranker("baseline")
 def rank_baseline(agents, nb_table, llr, rng, cfg):
+    if cfg.n_surfaced == 1:
+        n = cfg.n
+        c = nb_table.shape[1] * cfg.history_window
+        keys = fused_gumbel_noise(n, c, rng)
+        out_col = np.empty(n, dtype=np.int64)
+        _fused_baseline_col(nb_table, agents.own_msgid, agents.read_ring,
+                            keys, out_col)
+        return out_col[:, None]
+
     _, cand_weight, cand_msgid, _, _ = gather_candidates(agents, nb_table, cfg)
     cand_weight[:] = 1.0
     mask_already_read(cand_weight, cand_msgid, agents)
@@ -72,6 +95,16 @@ def rank_baseline(agents, nb_table, llr, rng, cfg):
 
 @register_ranker("similarity")
 def rank_similarity(agents, nb_table, llr, rng, cfg):
+    if cfg.n_surfaced == 1:
+        n = cfg.n
+        c = nb_table.shape[1] * cfg.history_window
+        keys = fused_gumbel_noise(n, c, rng)
+        out_col = np.empty(n, dtype=np.int64)
+        _fused_similarity_col(nb_table, agents.own_msgid, agents.own_claim,
+                              agents.read_ring, agents.beliefs, llr,
+                              keys, out_col)
+        return out_col[:, None]
+
     cand_claim, cand_weight, cand_msgid, _, _ = gather_candidates(agents, nb_table, cfg)
     x = llr[cand_claim]
     distance = np.abs(agents.beliefs[:, None] - x)
@@ -82,6 +115,15 @@ def rank_similarity(agents, nb_table, llr, rng, cfg):
 
 @register_ranker("engagement")
 def rank_engagement(agents, nb_table, llr, rng, cfg):
+    if cfg.n_surfaced == 1:
+        n = cfg.n
+        c = nb_table.shape[1] * cfg.history_window
+        keys = fused_gumbel_noise(n, c, rng)
+        out_col = np.empty(n, dtype=np.int64)
+        _fused_engagement_col(nb_table, agents.own_msgid, agents.read_ring,
+                              agents.liked_count, keys, out_col)
+        return out_col[:, None]
+
     _, cand_weight, cand_msgid, _, cand_sender = gather_candidates(agents, nb_table, cfg)
     rows = np.arange(cfg.n)[:, None]
     affinity = agents.liked_count[rows, cand_sender]
@@ -92,6 +134,15 @@ def rank_engagement(agents, nb_table, llr, rng, cfg):
 
 @register_ranker("post_popularity")
 def rank_post_popularity(agents, nb_table, llr, rng, cfg):
+    if cfg.n_surfaced == 1:
+        n = cfg.n
+        c = nb_table.shape[1] * cfg.history_window
+        keys = fused_gumbel_noise(n, c, rng)
+        out_col = np.empty(n, dtype=np.int64)
+        _fused_post_popularity_col(nb_table, agents.own_msgid, agents.own_likes,
+                                   agents.read_ring, keys, out_col)
+        return out_col[:, None]
+
     _, cand_weight, cand_msgid, cand_likes, _ = gather_candidates(agents, nb_table, cfg)
     cand_weight = (1.0 + cand_likes).astype(np.float32)
     mask_already_read(cand_weight, cand_msgid, agents)
@@ -100,6 +151,15 @@ def rank_post_popularity(agents, nb_table, llr, rng, cfg):
 
 @register_ranker("user_popularity")
 def rank_user_popularity(agents, nb_table, llr, rng, cfg):
+    if cfg.n_surfaced == 1:
+        n = cfg.n
+        c = nb_table.shape[1] * cfg.history_window
+        keys = fused_gumbel_noise(n, c, rng)
+        out_col = np.empty(n, dtype=np.int64)
+        _fused_user_popularity_col(nb_table, agents.own_msgid, agents.read_ring,
+                                   agents.user_likes, keys, out_col)
+        return out_col[:, None]
+
     _, cand_weight, cand_msgid, _, cand_sender = gather_candidates(agents, nb_table, cfg)
     cand_weight = (1.0 + agents.user_likes[cand_sender]).astype(np.float32)
     mask_already_read(cand_weight, cand_msgid, agents)

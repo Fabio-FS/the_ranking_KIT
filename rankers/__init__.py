@@ -1,7 +1,7 @@
 from .config    import Config
 from .simulate  import run, run_replicates
 from .emission  import emit
-from .metrics   import SimResult, compute_metrics, bimodality_coeff
+from .metrics   import SimResult, compute_metrics
 
 __all__ = [
     "Config",
@@ -12,6 +12,5 @@ __all__ = [
     "select_external",
     "emit",
     "SimResult",
-    "compute_metrics",
-    "bimodality_coeff",
+    "compute_metrics"
 ]

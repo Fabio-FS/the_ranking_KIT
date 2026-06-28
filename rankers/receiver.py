@@ -24,8 +24,8 @@ def record_read(agents: Agents, msgids: np.ndarray, cfg: Config) -> None:
     agents._read_col = (agents._read_col + 1) % (2 * cfg.history_window)
 
 
-@register_receiver("passive")
-def receive_passive(agents: Agents, surfaced: np.ndarray, nb_table: np.ndarray,
+@register_receiver("neighbors")
+def receive_neighbors(agents: Agents, surfaced: np.ndarray, nb_table: np.ndarray,
                     rng: np.random.Generator, cfg: Config) -> np.ndarray:
     """
     Reads the single surfaced message (K=1). No user-side input bias yet.
@@ -46,5 +46,30 @@ def receive_passive(agents: Agents, surfaced: np.ndarray, nb_table: np.ndarray,
 
     agents.read_neighbour = nb_table[rows, col // w]
     agents.read_col       = col % w
+
+    return received.astype(np.int32)
+
+@register_receiver("external")
+def receive_external(agents: Agents, surfaced: np.ndarray, nb_table: np.ndarray,
+                     rng: np.random.Generator, cfg: Config) -> np.ndarray:
+    """
+    Reads one claim drawn uniformly from the whole population, ignoring topology.
+    Each agent picks a random author from all N agents and reads that author's
+    most recent broadcast. surfaced and nb_table are unused: external reception
+    bypasses the ranker and the neighbour table entirely.
+    """
+    n = cfg.n
+    w = cfg.history_window
+    rows = np.arange(n)
+
+    author = rng.integers(0, n, size=n)
+    last_col = (agents._write_col - 1) % w
+
+    received  = agents.own_claim[author, last_col]
+    chosen_id = agents.own_msgid[author, last_col]
+    record_read(agents, chosen_id, cfg)
+
+    agents.read_neighbour = author
+    agents.read_col = np.full(n, last_col, dtype=np.int64)
 
     return received.astype(np.int32)

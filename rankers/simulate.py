@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import replace
+import multiprocessing as mp
 
 import numpy as np
 
@@ -42,12 +43,14 @@ def run(cfg: Config) -> SimResult:
     """
     rng = np.random.default_rng(cfg.seed)
 
+
     g, flat, offsets = build_network(cfg)
     nb_table = build_neighbor_table(flat, offsets, cfg.n)
     llr    = build_claims(cfg, rng)
-    agents = Agents(cfg, rng)
+    agents = Agents(cfg, rng, llr)
 
-    hist: dict[str, list[float]] = {k: [] for k in ("mean", "std", "variance", "bimodality")}
+# simulate.py — inside run(), replace the hist initialization line
+    hist: dict[str, list[float]] = {k: [] for k in ("mean", "std", "variance", "opinion", "polarization")}
     t0 = time.perf_counter()
 
     ranker   = RANKERS[cfg.ranker]
@@ -60,18 +63,27 @@ def run(cfg: Config) -> SimResult:
     
     bias_fn  = compose_biases(cfg.biases)
     publish(agents, llr, cfg)
+
+
+    # simulate.py  — near the other trajectory buffers, before the loop
+    n_records = (cfg.n_steps + cfg.record_every - 1) // cfg.record_every
+    full_traj = np.empty((n_records, cfg.n), dtype=np.float64)   # full-population snapshots
+    rec = 0
     for t in range(cfg.n_steps):
         surfaced = ranker(agents, nb_table, llr, rng, cfg)         # platform: surface K posts
         received = receiver(agents, surfaced, nb_table, rng, cfg)  # user: read one
         step(agents, received, llr, rng, cfg, bias_fn)             # process: update model
         emit(agents, llr, rng, cfg)                                # emit: pick next post
         publish(agents, llr, cfg)
+        # simulate.py  — inside the loop, the recording block
         if t % cfg.record_every == 0:
             m = compute_metrics(agents.beliefs)
             for k, v in m.items():
                 hist[k].append(v)
             belief_traj.append(agents.beliefs[tracked].copy())
-            rep_traj.append(agents.seen[tracked].sum(axis=1).copy())
+            rep_traj.append((agents.seen[tracked] > 0).sum(axis=1).copy())
+            full_traj[rec] = agents.beliefs           # no .append, no .copy (row write copies)
+            rec += 1
 
     result = SimResult(
         history             = {k: np.asarray(v) for k, v in hist.items()},
@@ -81,10 +93,19 @@ def run(cfg: Config) -> SimResult:
         tracked_agents      = tracked,
         belief_trajectories = np.stack(belief_traj),    # (n_records, n_tracked)
         repertoire_history  = np.stack(rep_traj),        # (n_records, n_tracked)
-        info_counts         = agents.seen.sum(axis=1),   # (N,) final unique claims seen
+        info_counts         = (agents.seen > 0).sum(axis=1)   # (N,) final unique claims seen
     )
+# simulate.py  — after the loop, where result.graph is attached
     result.graph = g
+    result.full_belief_traj = full_traj              # (n_records, N), preallocated
     return result
+
+
+def _run_one(args: tuple[Config, int]) -> SimResult:
+    """Module-level (picklable) replicate worker: run one seed."""
+    cfg, seed = args
+    return run(replace(cfg, seed=seed))
+
 
 
 def run_replicates(
@@ -105,16 +126,15 @@ def run_replicates(
     }
     """
     base = cfg.seed if cfg.seed is not None else 0
-
-    def _one(rep: int) -> SimResult:
-        return run(replace(cfg, seed=base + rep))
+    tasks = [(cfg, base + rep) for rep in range(n_reps)]
 
     if parallel:
         from concurrent.futures import ProcessPoolExecutor
-        with ProcessPoolExecutor() as pool:
-            results = list(pool.map(_one, range(n_reps)))
+        ctx = mp.get_context("spawn")
+        with ProcessPoolExecutor(mp_context=ctx) as pool:
+            results = list(pool.map(_run_one, tasks))
     else:
-        results = [_one(r) for r in range(n_reps)]
+        results = [_run_one(t) for t in tasks]
 
     keys    = list(results[0].history.keys())
     stacked = {k: np.stack([r.history[k] for r in results]) for k in keys}  # (R, T)
@@ -123,5 +143,31 @@ def run_replicates(
         "mean":          {k: stacked[k].mean(0) for k in keys},
         "std":           {k: stacked[k].std(0)  for k in keys},
         "final_beliefs": np.stack([r.final_beliefs for r in results]),
+        "elapsed_s":     [r.elapsed_s for r in results],
+    }
+
+
+
+def run_replicates_and_save_all_trajectories(cfg, n_reps=30, parallel=False):
+    base = cfg.seed if cfg.seed is not None else 0
+    tasks = [(cfg, base + rep) for rep in range(n_reps)]
+
+    if parallel:
+        from concurrent.futures import ProcessPoolExecutor
+        import multiprocessing as mp
+        ctx = mp.get_context("spawn")
+        with ProcessPoolExecutor(mp_context=ctx) as pool:
+            results = list(pool.map(_run_one, tasks))
+    else:
+        results = [_run_one(t) for t in tasks]
+
+    keys = list(results[0].history.keys())
+    stacked = {k: np.stack([r.history[k] for r in results]) for k in keys}  # (R, T)
+
+    return {
+        "mean":          {k: stacked[k].mean(0) for k in keys},
+        "std":           {k: stacked[k].std(0)  for k in keys},
+        "final_beliefs": np.stack([r.final_beliefs for r in results]),
+        "trajectories":  np.stack([r.full_belief_traj for r in results]),  # (R, n_records, N)
         "elapsed_s":     [r.elapsed_s for r in results],
     }

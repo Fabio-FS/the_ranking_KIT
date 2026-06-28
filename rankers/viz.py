@@ -123,3 +123,94 @@ def plot_network_info(result: SimResult, ax: plt.Axes | None = None) -> plt.Axes
         ax           = ax,
     )
     return ax
+
+
+# plot_trajectory_grid.py
+def plot_trajectory_grid(sweep, betas, n_reps=1, record_every=1):
+    n_rows = len(betas)
+    fig, axes = plt.subplots(n_rows, n_reps, figsize=(4 * n_reps, 3.5 * n_rows),
+                             sharex=True, sharey=True, squeeze=False)
+    steps = np.arange(sweep[betas[0]]["trajectories"].shape[1]) * record_every
+
+    for row, beta in enumerate(betas):
+        traj = sweep[beta]["trajectories"]   # (R, n_records, N)
+        for rep in range(n_reps):
+            ax = axes[row, rep]
+            opinion = 1.0 / (1.0 + np.exp(-traj[rep]))   # (n_records, N)
+            ax.plot(steps, opinion, lw=0.4, alpha=0.3)
+            ax.axhline(0.5, color="black", lw=0.8, ls="--")
+            ax.set_ylim(0, 1)
+            ax.set_title(f"β = {beta}, rep {rep}")
+
+    for ax in axes[-1]:
+        ax.set_xlabel("step")
+    for ax in axes[:, 0]:
+        ax.set_ylabel("opinion")
+
+    fig.tight_layout()
+    return fig
+
+# plot_trajectory_heatmap_grid.py
+def plot_trajectory_heatmap_grid(sweep, betas, n_reps=1, n_bins=20, record_every=1):
+    n_rows = len(betas)
+    fig, axes = plt.subplots(n_rows, n_reps, figsize=(4 * n_reps, 3.5 * n_rows),
+                             sharex=True, sharey=True, squeeze=False)
+    bins = np.linspace(0.0, 1.0, n_bins + 1)
+
+    for row, beta in enumerate(betas):
+        traj = sweep[beta]["trajectories"]   # (R, n_records, N)
+        n_records = traj.shape[1]
+        for rep in range(n_reps):
+            ax = axes[row, rep]
+            opinion = 1.0 / (1.0 + np.exp(-traj[rep]))   # (n_records, N)
+
+            heat = np.empty((n_bins, n_records))
+            for t in range(n_records):
+                heat[:, t] = np.histogram(opinion[t], bins=bins)[0]
+
+            ax.imshow(heat, origin="lower", aspect="auto",
+                      extent=[0, n_records * record_every, 0.0, 1.0],
+                      cmap="viridis")
+            ax.axhline(0.5, color="white", lw=0.8, ls="--")
+            ax.set_title(f"β = {beta}, rep {rep}")
+
+    for ax in axes[-1]:
+        ax.set_xlabel("step")
+    for ax in axes[:, 0]:
+        ax.set_ylabel("opinion")
+
+    fig.tight_layout()
+    return fig
+
+
+    # plot_trajectory_heatmap_avg.py
+def plot_trajectory_heatmap_avg(sweep, betas, n_reps=1, n_bins=20, record_every=1):
+    n_rows = len(betas)
+    fig, axes = plt.subplots(n_rows, 1, figsize=(6, 3.5 * n_rows),
+                             sharex=True, sharey=True, squeeze=False)
+    bins = np.linspace(0.0, 1.0, n_bins + 1)
+
+    for row, beta in enumerate(betas):
+        traj = sweep[beta]["trajectories"]   # (R, n_records, N)
+        n_records = traj.shape[1]
+        ax = axes[row, 0]
+
+        heat = np.zeros((n_bins, n_records))
+        for rep in range(n_reps):
+            opinion = 1.0 / (1.0 + np.exp(-traj[rep]))   # (n_records, N)
+            for t in range(n_records):
+                heat[:, t] += np.histogram(opinion[t], bins=bins)[0]
+        heat /= n_reps
+
+        ax.imshow(heat, origin="lower", aspect="auto",
+                  extent=[0, n_records * record_every, 0.0, 1.0],
+                  cmap="viridis")
+        ax.axhline(0.5, color="white", lw=0.8, ls="--")
+        ax.set_title(f"β = {beta}  (avg over {n_reps} reps)")
+
+    axes[-1, 0].set_xlabel("step")
+    for ax in axes[:, 0]:
+        ax.set_ylabel("opinion")
+
+    fig.tight_layout()
+    return fig

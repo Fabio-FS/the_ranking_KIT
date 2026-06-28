@@ -1,3 +1,4 @@
+# agents.py
 from __future__ import annotations
 import numpy as np
 from .config import Config
@@ -25,14 +26,17 @@ class Agents:
                  "_write_col", "_read_col", "_msg_counter",
                  "liked_count", "user_likes")
 
-    def __init__(self, cfg: Config, rng: np.random.Generator) -> None:
-        n, m, w = cfg.n, cfg.n_claims, cfg.history_window
-        self.beliefs = rng.normal(0.0, cfg.belief_std, n).astype(np.float64)
+    def __init__(self, cfg: Config, rng: np.random.Generator, llr: np.ndarray) -> None:
+        n, w = cfg.n, cfg.history_window
+        m = len(llr)
         self.seen = np.zeros((n, m), dtype=np.int32)
 
         seed_size = min(cfg.repertoire_seed_size, m)
         seeds = rng.integers(0, m, size=(n, seed_size), dtype=np.int32)
         self.seen[np.arange(n)[:, None], seeds] = True
+
+        # Initial belief is the sum of the LLRs of the seeded claims.
+        self.beliefs = llr[seeds].sum(axis=1).astype(np.float64)
 
         init_col = rng.integers(0, seed_size, size=n)
         self.last_claim = seeds[np.arange(n), init_col].astype(np.int32)

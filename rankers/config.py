@@ -13,12 +13,18 @@ class Config:
     # Claim pool
     n_claims: int = 200     # distinct claims in the pool
     llr_std: float = 1.0    # LLR(c) ~ N(0, llr_std^2)
+    claim_scheme: str = "gaussian"   # which builder in claims.SCHEMES
+    llr_mag: float = 1.0             # magnitude for the "fixed" scheme
+    
+    
     # Claim pool — signal vs flooding split
     flood_fraction: float = 1.0     # fraction of n_claims that are zero-mean noise
     mu_signal: float = 1.0          # mean LLR of the signal claims
     sigma_signal: float = 1.0       # std of the signal claims
     sigma_flood: float = 1.0        # std of the flooding (zero-mean) claims
 
+    n_disinfo: int = 0          # extra one-sided disinformation claims
+    disinfo_mag: float = 1.0    # LLR of every disinfo claim (signed)
     
     # Agent initialisation
     belief_std: float = 0.5           # initial log-odds ~ N(0, belief_std^2)
@@ -29,10 +35,11 @@ class Config:
 
     # Emission
     emission_temp: float = 1.0        # beta in exp(beta * l_i * LLR(c)); 0 = uniform
-
+    emission_scheme: str = "sign"     # "sign" (honest) | "magnitude" (sensationalism)
+    
     # Simulation
     n_steps: int = 2000
-    record_every: int = 1   # record metrics every k steps
+    record_every: int = 5   # record metrics every k steps
 
     seed: Optional[int] = 42
 
@@ -41,7 +48,7 @@ class Config:
     n_surfaced: int = 1             # K: messages the ranker surfaces per agent per step
     n_tracked:  int = 50            # how many agents to track individually
     ranker:   str = "baseline"
-    receiver: str = "passive"
+    receiver: str = "neighbors"
 
 
     # Biases (process stage)
