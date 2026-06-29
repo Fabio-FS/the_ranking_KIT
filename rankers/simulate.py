@@ -171,3 +171,42 @@ def run_replicates_and_save_all_trajectories(cfg, n_reps=30, parallel=False):
         "trajectories":  np.stack([r.full_belief_traj for r in results]),  # (R, n_records, N)
         "elapsed_s":     [r.elapsed_s for r in results],
     }
+
+
+
+## --- Sweeps over a parameter
+
+def run_beta_sweep(base, betas, n_reps, parallel=True):
+    sweep = {}
+    for beta in betas:
+        print(f"Running β = {beta} ...")
+        cfg_beta = replace(base, emission_temp=beta)
+        sweep[beta] = run_replicates(cfg_beta, n_reps=n_reps, parallel=parallel)
+    return sweep
+
+def run_matrix_sweep(base, bias_configs, ranker_names, n_reps=10, parallel=False):
+    """
+    Run all (bias, ranker) combinations.
+    Returns dict[bias_name][ranker_name] -> run_replicates() aggregate dict.
+    """
+    results = {}
+    n_total = len(bias_configs) * len(ranker_names)
+    done = 0
+    for bias_name, bias_overrides in bias_configs:
+        results[bias_name] = {}
+        for ranker in ranker_names:
+            done += 1
+            print(f"[{done}/{n_total}]  bias={bias_name:15s}  ranker={ranker} ...")
+            cfg = replace(base, biases=(bias_name,), ranker=ranker, **bias_overrides)
+            results[bias_name][ranker] = run_replicates(cfg, n_reps=n_reps, parallel=parallel)
+    return results
+
+
+def run_ndisinfo_sweep(base, n_disinfo_values, n_reps, parallel=True):
+    sweep = {}
+    for nd in n_disinfo_values:
+        print(f"Running n_disinfo = {nd} ...")
+        cfg_nd = replace(base, disinfo_mag=-1.0, n_disinfo=nd)
+        sweep[nd] = run_replicates_and_save_all_trajectories(cfg_nd, n_reps=n_reps, parallel=parallel)
+    return sweep
+

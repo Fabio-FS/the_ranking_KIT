@@ -214,3 +214,22 @@ def plot_trajectory_heatmap_avg(sweep, betas, n_reps=1, n_bins=20, record_every=
 
     fig.tight_layout()
     return fig
+
+
+def plot_metric_comparison(aggs, metric_left, metric_right, ax_left, ax_right, labels=None, x_lim=None, record_every=1):
+    colors = plt.cm.viridis(np.linspace(0, 1, len(aggs)))
+    label_list = labels if labels is not None else [None] * len(aggs)
+    for metric, ax in [(metric_left, ax_left), (metric_right, ax_right)]:
+        steps = np.arange(len(aggs[0]["mean"][metric])) * record_every
+        for agg, label, color in zip(aggs, label_list, colors):
+            m = agg["mean"][metric]
+            s = agg["std"][metric]
+            ax.plot(steps, m, color=color, label=label, lw=1.5)
+            ax.fill_between(steps, m - s, m + s, color=color, alpha=0.2)
+        ax.set_xlabel("step")
+        ax.set_ylabel(metric)
+        if labels is not None:
+            ax_left.legend()
+    if x_lim is not None:
+        ax_left.set_xlim(x_lim)
+        ax_right.set_xlim(x_lim)

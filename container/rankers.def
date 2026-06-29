@@ -1,0 +1,23 @@
+Bootstrap: docker
+From: continuumio/miniconda3:latest
+
+%post
+    # Install all scientific dependencies via conda-forge.
+    # conda handles the LLVM/LLVM-lite toolchain that numba requires,
+    # which is why we prefer conda over plain pip here.
+    conda install -y -c conda-forge \
+        python=3.11 \
+        numpy \
+        matplotlib \
+        python-igraph \
+        numba \
+    && conda clean -afy
+
+%environment
+    export PATH=/opt/conda/bin:$PATH
+    export PYTHONUNBUFFERED=1
+    # Project code is bind-mounted at runtime; caller sets PYTHONPATH.
+
+%labels
+    Project rankers
+    Description Beta-sweep simulation environment

@@ -173,4 +173,8 @@ def rank_chronological(agents, nb_table, llr, rng, cfg):
     keys[cand_weight <= 0.0] = -np.inf
     already = (cand_msgid[:, :, None] == agents.read_ring[:, None, :]).any(axis=2)
     keys[already] = -np.inf
+    # Gumbel noise breaks ties among same-step messages (noise magnitude << n,
+    # so it never overturns genuine recency differences across steps).
+    noise = fused_gumbel_noise(cfg.n, keys.shape[1], rng).astype(np.float64)
+    keys[keys > -np.inf] += noise[keys > -np.inf]
     return np.argsort(keys, axis=1)[:, ::-1][:, :cfg.n_surfaced]
