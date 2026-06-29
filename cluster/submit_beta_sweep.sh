@@ -10,6 +10,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 #SBATCH --job-name=beta_sweep
+#SBATCH --partition=cpu
 #SBATCH --array=0-20
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
