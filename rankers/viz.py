@@ -216,6 +216,54 @@ def plot_trajectory_heatmap_avg(sweep, betas, n_reps=1, n_bins=20, record_every=
     return fig
 
 
+def plot_matrix_grid(
+    matrix,
+    bias_names=None,
+    ranker_names=None,
+    record_every=20,
+    title="Opinion & Polarization — bias (rows) × ranker (cols)",
+):
+    """Trajectory grid: bias (rows) × ranker (cols).
+
+    matrix       : dict[bias_name][ranker_name] → run_replicates() aggregate
+    bias_names   : which biases to show (rows); None = all keys in matrix
+    ranker_names : which rankers to show (cols); None = all keys in first bias
+    """
+    if bias_names is None:
+        bias_names = list(matrix.keys())
+    if ranker_names is None:
+        ranker_names = list(matrix[next(iter(matrix))].keys())
+
+    N, M = len(bias_names), len(ranker_names)
+    fig, axes = plt.subplots(N, M, figsize=(3.5 * M, 2.8 * N),
+                             sharex=True, sharey="row", squeeze=False)
+
+    for i, bias in enumerate(bias_names):
+        for j, ranker in enumerate(ranker_names):
+            ax = axes[i, j]
+            agg = matrix[bias][ranker]
+            for metric, color in [("opinion", "steelblue"), ("polarization", "tomato")]:
+                m = agg["mean"][metric]
+                s = agg["std"][metric]
+                t = np.arange(len(m)) * record_every
+                ax.plot(t, m, color=color, lw=1.2, label=metric)
+                ax.fill_between(t, m - s, m + s, color=color, alpha=0.2)
+            ax.axhline(0, color="black", lw=0.6, ls="--")
+            ax.tick_params(labelsize=7)
+            if i == 0:
+                ax.set_title(ranker, fontsize=9)
+            if j == 0:
+                ax.set_ylabel(bias, fontsize=9)
+            if i == N - 1:
+                ax.set_xlabel("step", fontsize=8)
+
+    axes[0, -1].legend(fontsize=7, loc="upper right")
+    if title:
+        fig.suptitle(title, fontsize=12, y=1.01)
+    plt.tight_layout()
+    return fig
+
+
 def plot_metric_comparison(aggs, metric_left, metric_right, ax_left, ax_right, labels=None, x_lim=None, record_every=1):
     colors = plt.cm.viridis(np.linspace(0, 1, len(aggs)))
     label_list = labels if labels is not None else [None] * len(aggs)

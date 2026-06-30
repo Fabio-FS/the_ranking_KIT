@@ -56,23 +56,17 @@ def draw_without_replacement(cand_weight: np.ndarray, k: int,
                              rng: np.random.Generator) -> np.ndarray:
     """
     Draw k candidate columns per agent, weighted, without replacement.
-    Gumbel-top-k: argtop-k of (log weight + Gumbel noise). Returns (N, k) columns.
+    Always picks the highest-weight candidates; tiny uniform noise breaks ties only.
     Zero-weight candidates get -inf and are never picked while positives remain.
     """
-    n = cand_weight.shape[0]
-    logits = np.log(cand_weight, out=np.full_like(cand_weight, -np.inf),
-                    where=cand_weight > 0.0)
-    g = rng.random(cand_weight.shape, dtype=np.float32)
-    np.clip(g, 1e-7, 1.0, out=g)
-    keys = logits - np.log(-np.log(g))
+    noise = rng.random(cand_weight.shape, dtype=np.float32) * 1e-6
+    keys = np.where(cand_weight > 0.0, cand_weight + noise, -np.inf)
     return np.argsort(keys, axis=1)[:, ::-1][:, :k]
 
 
 def fused_gumbel_noise(n: int, c: int, rng: np.random.Generator) -> np.ndarray:
-    """Gumbel(0,1) noise array (N, C) for the fused single-pass kernels."""
-    g = rng.random((n, c), dtype=np.float32)
-    np.clip(g, 1e-7, 1.0, out=g)
-    return -np.log(-np.log(g))
+    """Tiny uniform tiebreaker noise (N, C) for the fused single-pass kernels."""
+    return rng.random((n, c), dtype=np.float32) * 1e-6
 
 
 # ── Rankers ───────────────────────────────────────────────────────────────────
@@ -127,7 +121,7 @@ def rank_engagement(agents, nb_table, llr, rng, cfg):
     _, cand_weight, cand_msgid, _, cand_sender = gather_candidates(agents, nb_table, cfg)
     rows = np.arange(cfg.n)[:, None]
     affinity = agents.liked_count[rows, cand_sender]
-    cand_weight = (1.0 + affinity).astype(np.float32)
+    cand_weight = affinity.astype(np.float32)
     mask_already_read(cand_weight, cand_msgid, agents)
     return draw_without_replacement(cand_weight, cfg.n_surfaced, rng)
 
@@ -144,7 +138,7 @@ def rank_post_popularity(agents, nb_table, llr, rng, cfg):
         return out_col[:, None]
 
     _, cand_weight, cand_msgid, cand_likes, _ = gather_candidates(agents, nb_table, cfg)
-    cand_weight = (1.0 + cand_likes).astype(np.float32)
+    cand_weight = cand_likes.astype(np.float32)
     mask_already_read(cand_weight, cand_msgid, agents)
     return draw_without_replacement(cand_weight, cfg.n_surfaced, rng)
 
@@ -161,7 +155,7 @@ def rank_user_popularity(agents, nb_table, llr, rng, cfg):
         return out_col[:, None]
 
     _, cand_weight, cand_msgid, _, cand_sender = gather_candidates(agents, nb_table, cfg)
-    cand_weight = (1.0 + agents.user_likes[cand_sender]).astype(np.float32)
+    cand_weight = agents.user_likes[cand_sender].astype(np.float32)
     mask_already_read(cand_weight, cand_msgid, agents)
     return draw_without_replacement(cand_weight, cfg.n_surfaced, rng)
 
