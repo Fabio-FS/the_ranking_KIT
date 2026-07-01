@@ -41,7 +41,7 @@ N_CONDITIONS = len(BIAS_CONFIGS) * len(RANKER_NAMES)  # 30
 
 BASE = Config(
     n=500,
-    k=32,
+    k=8,
     p_rewire=0.01,
     n_claims=200,
     claim_scheme="disinfo",

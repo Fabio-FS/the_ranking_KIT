@@ -21,7 +21,7 @@ BETAS = [0.0] + list(np.logspace(0, 10, 20, base=2))  # 21 total
 
 BASE = Config(
     n=500,
-    k=32,
+    k=8,
     p_rewire=0.01,
     n_claims=200,
     claim_scheme="fixed",
